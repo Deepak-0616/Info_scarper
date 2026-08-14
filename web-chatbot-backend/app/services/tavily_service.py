@@ -19,14 +19,27 @@ HEADERS = {
 
 async def direct_fetch_url(url: str) -> dict[str, Any]:
     """Fallback web scraper: fetch URL directly using HTTP and extract plain text."""
-    async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True, headers=HEADERS) as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        html = resp.text
+    target_url = url.strip()
+    if not target_url.startswith(("http://", "https://")):
+        target_url = "https://" + target_url
+
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True, headers=HEADERS) as client:
+            resp = await client.get(target_url)
+            resp.raise_for_status()
+            html = resp.text
+    except httpx.ConnectError as e:
+        raise ValueError(f"Could not connect to target URL '{target_url}'. Connection failed — check that the URL is valid, online, and accessible.") from e
+    except httpx.TimeoutException as e:
+        raise ValueError(f"Connection to target URL '{target_url}' timed out.") from e
+    except httpx.HTTPStatusError as e:
+        raise ValueError(f"Target URL '{target_url}' returned HTTP error status {e.response.status_code}.") from e
+    except Exception as e:
+        raise ValueError(f"Failed to fetch content from '{target_url}': {e}") from e
 
     # Extract title
     title_match = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
-    title = title_match.group(1).strip() if title_match else url
+    title = title_match.group(1).strip() if title_match else target_url
 
     # Clean HTML script, style, comments
     cleaned = re.sub(r"<(script|style|svg|header|footer|nav)[^>]*>.*?</\1>", "", html, flags=re.IGNORECASE | re.DOTALL)
@@ -34,11 +47,11 @@ async def direct_fetch_url(url: str) -> dict[str, Any]:
     text = re.sub(r"\s+", " ", text).strip()
 
     if not text:
-        raise ValueError(f"Could not extract readable text content from URL: {url}")
+        raise ValueError(f"Could not extract readable text content from URL: {target_url}")
 
     return {
         "content": text[:15000],
-        "sources": [{"title": title, "url": url}]
+        "sources": [{"title": title, "url": target_url}]
     }
 
 
