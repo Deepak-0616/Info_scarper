@@ -13,10 +13,12 @@ from app.services import tavily_service, groq_service
 _SESSIONS: dict[str, list[dict[str, str]]] = defaultdict(list)
 
 SYSTEM_PROMPT = (
-    "You are a helpful assistant. Answer the user's question using the CONTEXT "
-    "provided below when it is relevant. If the context does not contain the answer, "
-    "say so and answer from your general knowledge, making clear what came from where. "
-    "Be concise and cite the source URLs when you use them."
+    "You are a strict webpage Q&A assistant. Answer the user's question ONLY and "
+    "exclusively using the details explicitly provided in the CONTEXT from the webpage. "
+    "Do NOT include any external knowledge, outside facts, or assumptions not found in the context. "
+    "If the answer cannot be found in the provided context, state clearly: "
+    "'The provided webpage does not contain information to answer this question.' "
+    "Be concise, direct, and adhere strictly to the provided page text."
 )
 
 # Rough char budget for injected context so we stay within model limits.
